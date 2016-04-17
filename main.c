@@ -1,5 +1,7 @@
 #include <stdbool.h>
+#include "geometry.h"
 #include "tga_img.c"
+#include "model.c"
 
 #define swap(a, b) do {typeof(a) TEMP = a; a = b; b = TEMP;} while (0)
 
