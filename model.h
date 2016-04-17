@@ -1,5 +1,8 @@
+/**
+ * Assumes that you've already defined the vectors in order to do this
+ * Probably have to move out the linked list definitions.
+ */
 #ifndef _MODEL_h_
-#include "geometry.h"
 
 #define DEFINE_LIST(type) \
     struct ll_node_##type { \
@@ -35,6 +38,7 @@
         if (prev_p) prev_p->next = next_p; \
         if (next_p) next_p->prev = prev_p; \
         free(node_p); \
+        list_p->count--; \
     } \
     static inline void RemIdxLL_##type(struct ll_##type *list_p, int idx) { \
         struct ll_node_##type *torem_p = GetLL_##type(list_p, idx); \
@@ -44,18 +48,18 @@
         struct ll_node_##type *newlast = calloc(sizeof(struct ll_node_##type), 1); \
         newlast->data = data; \
         newlast->prev = list_p->last; \
-        list_p->last->next = newlast; \
+        if (list_p->last) list_p->last->next = newlast; \
+        if (!list_p->first) list_p->first = newlast; \
         list_p->last = newlast; \
+        list_p->count++; \
     }
 
 DEFINE_LIST(v3f);
-DEFINE_LIST(int);
+DEFINE_LIST(v3i);
 
 struct model {
-    struct ll_v3f *verts_;
-    struct ll_int *faces_;
-
-    int nverts, nfaces;
+    struct ll_v3f verts_;
+    struct ll_v3i faces_;
 };
 
 #define _MODEL_h_
