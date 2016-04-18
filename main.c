@@ -13,7 +13,7 @@ const int height = 800;
 
 static 
 void
-line(TGA_Image *image_p, int x0, int y0, int x1, int y1, TGA_Color color)
+lineXY(TGA_Image *image_p, int x0, int y0, int x1, int y1, TGA_Color color)
 {
     bool steep = false;
     if (fabs(x0 - x1) < fabs(y0 - y1)) {
@@ -34,15 +34,52 @@ line(TGA_Image *image_p, int x0, int y0, int x1, int y1, TGA_Color color)
     int y = y0;
 
     for (int x = x0; x <= x1; x++) {
+        bool imageSet;
         if (steep) 
-            TGA_ImageSet(image_p, y, x, color);
+            imageSet = TGA_ImageSet(image_p, y, x, color);
         else
-            TGA_ImageSet(image_p, x, y, color);
+            imageSet = TGA_ImageSet(image_p, x, y, color);
+        if (!imageSet) {
+            fprintf(stderr, "Can't set pixel at %d, %d\n", x, y);
+        }
 
         error2 += derror2;
         if (error2 > dx) {
             y += (y1 > y0 ? 1 : -1);
             error2 -= dx * 2;
+        }
+    }
+}
+
+static
+void
+lineV2(TGA_Image *image_p, v2i t0, v2i t1, TGA_Color color)
+{
+    lineXY(image_p, t0.x, t0.y, t1.x, t1.y, color);
+}
+
+static
+void
+triangle(TGA_Image *image_p, v2i t0, v2i t1, v2i t2, TGA_Color color)
+{
+    if (t0.y == t1.y && t0.y == t2.y) return;
+    if (t0.y > t1.y) swap(t0, t1);
+    if (t0.y > t2.y) swap(t0, t2);
+    if (t1.y > t2.y) swap(t1, t2);
+
+    int t_height = t2.y - t0.y;
+    for (int i = 0; i < t_height; i++) {
+        bool second_half = i > t1.y - t0.y || t1.y == t0.y;
+        int seg_height = second_half ? t2.y - t1.y : t1.y - t0.y;
+        float alpha = (float)i/t_height;
+        float beta  = (float)(i - (second_half ? t1.y - t0.y : 0))/seg_height;
+        v2i a = AddV2_int(t0, MulV2_int(alpha, SubV2_int(t2, t0)));
+        v2i b = second_half 
+            ? AddV2_int(t1, MulV2_int(beta, SubV2_int(t2, t1))) 
+            : AddV2_int(t0, MulV2_int(beta, SubV2_int(t1, t0)));
+        if (a.x > b.x) swap(a,b);
+        for (int j = a.x; j <= b.x; j++) {
+            TGA_ImageSet(image_p, j, t0.y + i, color);
         }
     }
 }
@@ -54,18 +91,24 @@ main(int argc, char **argv)
         model_p = ModelInit(argv[1]);
     else
         model_p = ModelInit("obj/african_head.obj");
+    srand(5);
 
     TGA_Image image = TGA_ImageInit(width, height, RGB);
-    for (struct ll_node_v3i *iter = model_p->faces_.first; iter; iter = iter->next) {
+    for (struct ll_node_v3i *face = model_p->faces_.first; face; face = face->next) {
+        v2i s_coords[3];
+        v3f w_coords[3];
         for (int j = 0; j < 3; j++) {
-            v3f v0 = GetLL_v3f(&model_p->verts_, iter->data.raw[j])->data;
-            v3f v1 = GetLL_v3f(&model_p->verts_, iter->data.raw[(j + 1) % 3])->data;
-            int x0 = (v0.x + 1.0f) * width / 2.0f;
-            int y0 = (v0.y + 1.0f) * height / 2.0f;
-            int x1 = (v1.x + 1.0f) * width / 2.0f;
-            int y1 = (v1.y + 1.0f) * height / 2.0f;
-            line(&image, x0, y0, x1, y1, white);
+            v3f v = GetLL_v3f(&model_p->verts_, face->data.raw[j])->data;
+            int x = (v.x + 1.0f) * width / 2.0f;
+            int y = (v.y + 1.0f) * height / 2.0f;
+            s_coords[j] = V2_int(x, y);
+            w_coords[j] = v;
         }
+        v3f n = CrossV3_float(SubV3_float(w_coords[2], w_coords[0]), SubV3_float(w_coords[1], w_coords[0]));
+        n = NormV3_float(n);
+        float intensity = DotV3_float(n, V3_float(0, 0, -1.0f));
+        if (intensity > 0)
+            triangle(&image, s_coords[0], s_coords[1], s_coords[2], TGA_ColorInit(intensity*255, intensity*255, intensity*255, 255));
     }
     TGA_ImageFlipVertically(&image);
     TGA_ImageWriteFile(&image, "output.tga", true);

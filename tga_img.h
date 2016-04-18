@@ -29,7 +29,7 @@ typedef struct TGA_Color {
     int bytespp;
 } TGA_Color;
 
-#define TGA_ColorInit(r, g, b, a) {.raw = {b, g, r, a}, .bytespp = 4}
+#define TGA_ColorInit(r, g, b, a) (TGA_Color){.raw = {b, g, r, a}, .bytespp = 4}
 
 typedef struct TGA_Image {
     unsigned char *data;

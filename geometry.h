@@ -9,19 +9,19 @@
     }
 
 #define DEFINE_V2(type) \
-    inline union v2_##type V2_##type(type a, type b) { \
+    static inline union v2_##type V2_##type(type a, type b) { \
         union v2_##type result = {.x=a, .y=b}; \
         return result; \
     } \
-    inline union v2_##type AddV2_##type(union v2_##type a, union v2_##type b) {\
+    static inline union v2_##type AddV2_##type(union v2_##type a, union v2_##type b) {\
         union v2_##type result = {.x=a.u + b.u, .y=a.v + b.v}; \
         return result; \
     } \
-    inline union v2_##type SubV2_##type(union v2_##type a, union v2_##type b) {\
+    static inline union v2_##type SubV2_##type(union v2_##type a, union v2_##type b) {\
         union v2_##type result = {.x=a.u - b.u, .y=a.v - b.v}; \
         return result; \
     } \
-    inline union v2_##type MulV2_##type(float f, union v2_##type a) { \
+    static inline union v2_##type MulV2_##type(float f, union v2_##type a) { \
         union v2_##type result = {.x=f * a.u, .y=f * a.v}; \
         return result; \
     }
@@ -34,24 +34,32 @@
     }
 
 #define DEFINE_V3(type) \
-    inline union v3_##type V3_##type(type a, type b, type c) { \
+    static inline union v3_##type V3_##type(type a, type b, type c) { \
         union v3_##type result = {.x=a, .y=b, .z=c}; \
         return result; \
     } \
-    inline union v3_##type AddV3_##type(union v3_##type a, union v3_##type b) { \
+    static inline union v3_##type AddV3_##type(union v3_##type a, union v3_##type b) { \
         union v3_##type result = {.x=a.x + b.x, .y=a.y + b.y, .z=a.z + b.z}; \
         return result; \
     } \
-    inline union v3_##type SubV3_##type(union v3_##type a, union v3_##type b) { \
+    static inline union v3_##type SubV3_##type(union v3_##type a, union v3_##type b) { \
         union v3_##type result = {.x=a.x - b.x, .y=a.y - b.y, .z=a.z - b.z}; \
         return result; \
     } \
-    inline union v3_##type MulV3_##type(float f, union v3_##type a) { \
+    static inline union v3_##type MulV3_##type(float f, union v3_##type a) { \
         union v3_##type result = {.x=f * a.x, .y=f * a.y, .z=f * a.z}; \
         return result; \
     } \
-    inline union v3_##type NormV3_##type(union v3_##type a) { \
+    static inline union v3_##type NormV3_##type(union v3_##type a) { \
         union v3_##type result = MulV3_##type(1.0f/sqrt(a.x*a.x+a.y*a.y+a.z*a.z), a); \
+        return result; \
+    } \
+    static inline union v3_##type CrossV3_##type(union v3_##type a, union v3_##type b) { \
+        union v3_##type result = {.x=a.y*b.z-a.z*b.y, .y=a.z*b.x-a.x*b.z, .z=a.x*b.y-a.y*b.x}; \
+        return result; \
+    } \
+    static inline type DotV3_##type(union v3_##type a, union v3_##type b) { \
+        type result = a.x * b.x + a.y * b.y + a.z * b.z; \
         return result; \
     }
 
