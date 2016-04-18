@@ -7,33 +7,33 @@
 
 const TGA_Color white = TGA_ColorInit(255, 255, 255, 255);
 const TGA_Color red   = TGA_ColorInit(255,   0,   0, 255);
+const TGA_Color blue  = TGA_ColorInit(  0, 255,   0, 255);
+const TGA_Color green = TGA_ColorInit(  0,   0, 255, 255);
 struct model *model_p = NULL;
 const int width = 800;
 const int height = 800;
 
-static 
+static
 void
-lineXY(TGA_Image *image_p, int x0, int y0, int x1, int y1, TGA_Color color)
+line(TGA_Image *image_p, v2i t0, v2i t1, TGA_Color color)
 {
     bool steep = false;
-    if (fabs(x0 - x1) < fabs(y0 - y1)) {
-        swap(x0, y0);
-        swap(x1, y1);
+    if (fabs(t0.x - t1.x) < fabs(t0.y - t1.y)) {
+        swap(t0.x, t0.y);
+        swap(t1.x, t1.y);
         steep = true;
     }
 
-    if (x0 > x1) {
-        swap(x0, x1);
-        swap(y0, y1);
-    }
+    if (t0.x > t1.x)
+        swap(t0, t1);
 
-    int dy = y1 - y0;
-    int dx = x1 - x0;
+    int dy = t1.y - t0.y;
+    int dx = t1.x - t0.x;
     int derror2 = fabs(dy)*2;
     int error2 = 0;
-    int y = y0;
+    int y = t0.y;
 
-    for (int x = x0; x <= x1; x++) {
+    for (int x = t0.x; x <= t1.x; x++) {
         bool imageSet;
         if (steep) 
             imageSet = TGA_ImageSet(image_p, y, x, color);
@@ -45,17 +45,10 @@ lineXY(TGA_Image *image_p, int x0, int y0, int x1, int y1, TGA_Color color)
 
         error2 += derror2;
         if (error2 > dx) {
-            y += (y1 > y0 ? 1 : -1);
+            y += (t1.y > t0.y ? 1 : -1);
             error2 -= dx * 2;
         }
     }
-}
-
-static
-void
-lineV2(TGA_Image *image_p, v2i t0, v2i t1, TGA_Color color)
-{
-    lineXY(image_p, t0.x, t0.y, t1.x, t1.y, color);
 }
 
 static
@@ -91,8 +84,8 @@ main(int argc, char **argv)
         model_p = ModelInit(argv[1]);
     else
         model_p = ModelInit("obj/african_head.obj");
-    srand(5);
 
+    srand(5);
     TGA_Image image = TGA_ImageInit(width, height, RGB);
     for (struct ll_node_v3i *face = model_p->faces_.first; face; face = face->next) {
         v2i s_coords[3];
@@ -112,6 +105,14 @@ main(int argc, char **argv)
     }
     TGA_ImageFlipVertically(&image);
     TGA_ImageWriteFile(&image, "output.tga", true);
+
+    TGA_Image scene = TGA_ImageInit(width, height, RGB);
+    line(&scene, V2_int(20, 34), V2_int(744, 300), red);
+    line(&scene, V2_int(120, 434), V2_int(444, 400), green);
+    line(&scene, V2_int(330, 463), V2_int(594, 200), blue);
+    line(&scene, V2_int(10, 10), V2_int(790, 10), white);
+    TGA_ImageFlipVertically(&scene);
+    TGA_ImageWriteFile(&scene, "scene.tga", true);
 
     ModelDelete(model_p);
     return 0;
