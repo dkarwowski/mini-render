@@ -60,6 +60,8 @@ DEFINE_LIST(v3i);
 struct model {
     struct ll_v3f verts_;
     struct ll_v3i faces_;
+    struct ll_v3f textures_;
+    struct ll_v3i faces_textures_;
 };
 
 #define _MODEL_h_

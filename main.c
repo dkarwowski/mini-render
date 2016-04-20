@@ -12,13 +12,13 @@ const TGA_Color white = TGA_ColorInit(255, 255, 255, 255);
 const TGA_Color red   = TGA_ColorInit(255,   0,   0, 255);
 const TGA_Color blue  = TGA_ColorInit(  0, 255,   0, 255);
 const TGA_Color green = TGA_ColorInit(  0,   0, 255, 255);
-struct model *model_p = NULL;
+struct model *model = NULL;
 const int width = 800;
 const int height = 800;
 
 static
 void
-line(TGA_Image *image_p, v2i t0, v2i t1, TGA_Color color)
+line(TGA_Image *image, v2i t0, v2i t1, TGA_Color color)
 {
     bool steep = false;
     if (fabs(t0.x - t1.x) < fabs(t0.y - t1.y)) {
@@ -39,9 +39,9 @@ line(TGA_Image *image_p, v2i t0, v2i t1, TGA_Color color)
     for (int x = t0.x; x <= t1.x; x++) {
         bool imageSet;
         if (steep) 
-            imageSet = TGA_ImageSet(image_p, y, x, color);
+            imageSet = TGA_ImageSet(image, y, x, color);
         else
-            imageSet = TGA_ImageSet(image_p, x, y, color);
+            imageSet = TGA_ImageSet(image, x, y, color);
         if (!imageSet) {
             fprintf(stderr, "Can't set pixel at %d, %d\n", x, y);
         }
@@ -73,11 +73,11 @@ barycentric(v3f A, v3f B, v3f C, v3f P)
 
 static
 void
-triangle(TGA_Image *image_p, v3f pts[3], float *zbuffer, TGA_Color color)
+triangle(TGA_Image *image, v3f pts[3], float *zbuffer, TGA_Color color)
 {
     v2f bboxmin = V2_float(FLT_MAX, FLT_MAX);
     v2f bboxmax = V2_float(FLT_MIN, FLT_MIN);
-    v2f clamp = V2_float(image_p->width - 1, image_p->height - 1);
+    v2f clamp = V2_float(image->width - 1, image->height - 1);
 
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 2; j++) {
@@ -98,7 +98,46 @@ triangle(TGA_Image *image_p, v3f pts[3], float *zbuffer, TGA_Color color)
 
             if (zbuffer[(int)(P.x + P.y * width)] < P.z) {
                 zbuffer[(int)(P.x + P.y * width)] = P.z;
-                TGA_ImageSet(image_p, P.x, P.y, color);
+                TGA_ImageSet(image, P.x, P.y, color);
+            }
+        }
+    }
+}
+
+static
+void
+textureMap(TGA_Image *image, TGA_Image *texture, v3f s_pts[3], v2i t_pts[3], float *zbuffer)
+{
+    v2f bboxmin = V2_float(FLT_MAX, FLT_MAX);
+    v2f bboxmax = V2_float(FLT_MIN, FLT_MIN);
+    v2f clamp = V2_float(image->width - 1, image->height - 1);
+
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 2; j++) {
+            bboxmin.raw[j] = MAX(0.0f,         MIN(bboxmin.raw[j], s_pts[i].raw[j]));
+            bboxmax.raw[j] = MIN(clamp.raw[j], MAX(bboxmax.raw[j], s_pts[i].raw[j]));
+        }
+    }
+
+    v3f P;
+    TGA_Color color;
+    for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++) {
+        for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++) {
+            v3f bc_screen = barycentric(s_pts[0], s_pts[1], s_pts[2], P);
+            if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0) continue;
+
+            P.z = 0;
+            for (int i = 0; i < 3; i++)
+                P.z += s_pts[i].z * bc_screen.raw[i];
+
+            v2i texture_pts = V2_int(
+                    bc_screen.x * t_pts[0].x + bc_screen.y * t_pts[1].x + bc_screen.z * t_pts[2].x,
+                    bc_screen.x * t_pts[0].y + bc_screen.y * t_pts[1].y + bc_screen.z * t_pts[2].y);
+            color = TGA_ImageGet(texture, texture_pts.x, texture_pts.y);
+
+            if (zbuffer[(int)(P.x + P.y * width)] < P.z) {
+                zbuffer[(int)(P.x + P.y * width)] = P.z;
+                TGA_ImageSet(image, P.x, P.y, color);
             }
         }
     }
@@ -108,33 +147,40 @@ int
 main(int argc, char **argv)
 {
     if (2 == argc)
-        model_p = ModelInit(argv[1]);
+        model = ModelInit(argv[1]);
     else
-        model_p = ModelInit("obj/african_head.obj");
+        model = ModelInit("obj/african_head.obj");
 
     int zbuffer[width*height];
+    for (int i = width * height; i--; zbuffer[i] = FLT_MIN);
 
-    srand(5);
+    TGA_Image texture;
+    TGA_ImageReadFile(&texture, "obj/african_head_diffuse.tga");
+    TGA_ImageFlipVertically(&texture);
+
     TGA_Image image = TGA_ImageInit(width, height, RGB);
-    for (struct ll_node_v3i *face = model_p->faces_.first; face; face = face->next) {
+
+    struct ll_node_v3i *face = model->faces_.first;
+    struct ll_node_v3i *face_texture = model->faces_textures_.first;
+    for (int i = 0; i < model->faces_.count; i++) {
+        v2i t_coords[3];
         v3f s_coords[3];
-        v3f w_coords[3];
         for (int j = 0; j < 3; j++) {
-            v3f v = GetLL_v3f(&model_p->verts_, face->data.raw[j])->data;
+            v3f v = GetLL_v3f(&model->verts_, face->data.raw[j])->data;
             int x = (v.x + 1.0f) * width / 2.0f;
             int y = (v.y + 1.0f) * height / 2.0f;
             s_coords[j] = V3_float(x, y, v.z);
-            w_coords[j] = v;
+            v3f t = GetLL_v3f(&model->textures_, face_texture->data.raw[j])->data;
+            t_coords[j] = V2_int(t.x * texture.width, t.y * texture.height);
         }
-        v3f n = CrossV3_float(SubV3_float(w_coords[2], w_coords[0]), SubV3_float(w_coords[1], w_coords[0]));
-        n = NormV3_float(n);
-        float intensity = DotV3_float(n, V3_float(0, 0, -1.0f));
-        if (intensity > 0)
-            triangle(&image, s_coords, (float *)zbuffer, TGA_ColorInit(intensity*255, intensity*255, intensity*255, 255));
+        textureMap(&image, &texture, s_coords, t_coords, (float *)zbuffer);
+
+        face = face->next;
+        face_texture = face_texture->next;
     }
     TGA_ImageFlipVertically(&image);
     TGA_ImageWriteFile(&image, "output.tga", true);
 
-    ModelDelete(model_p);
+    ModelDelete(model);
     return 0;
 }

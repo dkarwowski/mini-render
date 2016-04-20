@@ -17,7 +17,14 @@ ModelInit(const char *filename)
 
     while (!feof(file_p)) {
         char *tok = strtok(line, " ");
-        if (strncmp(tok, "v", 1) == 0) {
+        if (strncmp(tok, "vt", 2) == 0) {
+            v3f data = {0};
+            for (int i = 0; i < 3; i++) {
+                tok = strtok(NULL, " ");
+                data.raw[i] = atof(tok);
+            }
+            AddLL_v3f(&result->textures_, data);
+        } else if (strncmp(tok, "v", 1) == 0) {
             v3f data = {0};
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
@@ -25,17 +32,26 @@ ModelInit(const char *filename)
             }
             AddLL_v3f(&result->verts_, data);
         } else if (strncmp(tok, "f", 1) == 0) {
-            v3i data = {0};
+            v3i data_model = {0};
+            v3i data_texture = {0};
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
+
+                int j;
                 char subtok[16];
-                for (int i = 0; i < 15 && tok[i] != '/'; i++) {
-                    subtok[i] = tok[i];
-                    subtok[i+1] = '\0';
+                for (j = 0; j < 15 && tok[j] != '/'; j++) {
+                    subtok[j] = tok[j];
+                    subtok[j+1] = '\0';
                 }
-                data.raw[i] = atoll(subtok) - 1;
+                data_model.raw[i] = atoll(subtok) - 1;
+                for (int k = 1; k < 15 - j && tok[j + k] != '/'; k++) {
+                    subtok[k - 1] = tok[j + k];
+                    subtok[k] = '\0';
+                }
+                data_texture.raw[i] = atoll(subtok) - 1;
             }
-            AddLL_v3i(&result->faces_, data);
+            AddLL_v3i(&result->faces_, data_model);
+            AddLL_v3i(&result->faces_textures_, data_texture);
         }
 
         if (fgets(line, 256, file_p) == NULL && !feof(file_p)) {
@@ -44,7 +60,10 @@ ModelInit(const char *filename)
         }
     }
     
-    fprintf(stderr, "# v# %d f# %d\n", result->verts_.count, result->faces_.count);
+    if (result->faces_.count != result->faces_textures_.count)
+        fprintf(stderr, "Invalid counts, %d != %d\n", result->faces_.count, result->faces_textures_.count);
+
+    fprintf(stderr, "# v# %d vt# %d f# %d\n", result->verts_.count, result->textures_.count, result->faces_.count);
     return result;
 }
 

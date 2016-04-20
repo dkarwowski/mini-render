@@ -278,7 +278,7 @@ TGA_ImageReadFile(TGA_Image *image_p, const char *filename)
     }
 
     TGA_Header header;
-    if (fread(&header, sizeof(header), 1, file_p) != sizeof(header)) {
+    if (fread(&header, sizeof(header), 1, file_p) == 0) {
         fprintf(stderr, "Error trying to read the header\n");
         fclose(file_p);
         return false;
