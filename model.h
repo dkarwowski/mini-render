@@ -64,6 +64,8 @@ struct model {
     struct ll_v3i faces_;
     struct ll_v3i face_textures_;
     struct ll_v3i face_normals_;
+
+    TGA_Image texture;
 };
 
 #define _MODEL_h_

@@ -77,6 +77,19 @@ ModelInit(const char *filename)
     if (result->faces_.count != result->face_textures_.count)
         fprintf(stderr, "Invalid counts, %d != %d\n", result->faces_.count, result->face_textures_.count);
 
+    char texture_filename[128];
+    for (int i = 0; i < 127 && filename[i] != '.'; i++) {
+        texture_filename[i] = filename[i];
+        texture_filename[i+1] = '\0';
+    }
+    strcat(texture_filename, "_diffuse.tga");
+
+    // quit out if the texture doesn't exist; we only do with textures
+    if (access(texture_filename, F_OK) == -1)
+        exit(-1);
+    TGA_ImageReadFile(&result->texture, texture_filename);
+    TGA_ImageFlipVertically(&result->texture);
+
     fprintf(stderr, "# v# %d vt# %d f# %d\n", result->verts_.count, result->textures_.count, result->faces_.count);
     return result;
 }
@@ -87,6 +100,14 @@ ModelDelete(struct model *model_p)
 {
     while (model_p->verts_.count)
         RemIdxLL_v3f(&model_p->verts_, 0);
+    while (model_p->textures_.count)
+        RemIdxLL_v3f(&model_p->textures_, 0);
+    while (model_p->normals_.count)
+        RemIdxLL_v3f(&model_p->normals_, 0);
     while (model_p->faces_.count)
         RemIdxLL_v3i(&model_p->faces_, 0);
+    while (model_p->face_textures_.count)
+        RemIdxLL_v3i(&model_p->face_textures_, 0);
+    while (model_p->face_normals_.count)
+        RemIdxLL_v3i(&model_p->face_normals_, 0);
 }
