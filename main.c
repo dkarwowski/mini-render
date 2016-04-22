@@ -106,7 +106,7 @@ triangle(TGA_Image *image, v3f pts[3], float *zbuffer, TGA_Color color)
 
 static
 void
-textureMap(TGA_Image *image, TGA_Image *texture, v3f s_pts[3], v2i t_pts[3], float *zbuffer)
+textureMap(TGA_Image *image, TGA_Image *texture, v3f s_pts[3], v2f t_pts[3], float *zbuffer)
 {
     v2f bboxmin = V2_float(FLT_MAX, FLT_MAX);
     v2f bboxmax = V2_float(FLT_MIN, FLT_MIN);
@@ -135,6 +135,22 @@ textureMap(TGA_Image *image, TGA_Image *texture, v3f s_pts[3], v2i t_pts[3], flo
                     bc_screen.x * t_pts[0].y + bc_screen.y * t_pts[1].y + bc_screen.z * t_pts[2].y);
             color = TGA_ImageGet(texture, texture_pts.x, texture_pts.y);
 
+            // compute a normal value
+            v3f w_pts[3];
+            for (int i = 0; i < 3; i++)
+                w_pts[i] = V3_float(s_pts[i].x * 2.0f / image->width - 1.0f, s_pts[i].y * 2.0f / image->height - 1.0f, s_pts[i].z);
+            v3f normal = CrossV3_float(SubV3_float(w_pts[2], w_pts[0]), SubV3_float(w_pts[1], w_pts[0]));
+            normal = NormV3_float(normal);
+            float intensity = DotV3_float(normal, V3_float(0.0, 0.0, -0.95f));
+            
+            if (intensity > 0.0f) {
+                color = TGA_ColorInit(
+                        intensity * color.r,
+                        intensity * color.g,
+                        intensity * color.b,
+                        color.a);
+            }
+
             if (zbuffer[(int)(P.x + P.y * width)] < P.z) {
                 zbuffer[(int)(P.x + P.y * width)] = P.z;
                 TGA_ImageSet(image, P.x, P.y, color);
@@ -151,19 +167,19 @@ main(int argc, char **argv)
     else
         model = ModelInit("obj/african_head.obj");
 
-    int zbuffer[width*height];
-    for (int i = width * height; i--; zbuffer[i] = FLT_MIN);
+    float zbuffer[width*height];
+    for (int i = width * height; i--; zbuffer[i] = -FLT_MAX);
 
-    TGA_Image texture;
+    TGA_Image texture = {0};
     TGA_ImageReadFile(&texture, "obj/african_head_diffuse.tga");
     TGA_ImageFlipVertically(&texture);
 
     TGA_Image image = TGA_ImageInit(width, height, RGB);
 
     struct ll_node_v3i *face = model->faces_.first;
-    struct ll_node_v3i *face_texture = model->faces_textures_.first;
+    struct ll_node_v3i *face_texture = model->face_textures_.first;
     for (int i = 0; i < model->faces_.count; i++) {
-        v2i t_coords[3];
+        v2f t_coords[3];
         v3f s_coords[3];
         for (int j = 0; j < 3; j++) {
             v3f v = GetLL_v3f(&model->verts_, face->data.raw[j])->data;
@@ -171,7 +187,7 @@ main(int argc, char **argv)
             int y = (v.y + 1.0f) * height / 2.0f;
             s_coords[j] = V3_float(x, y, v.z);
             v3f t = GetLL_v3f(&model->textures_, face_texture->data.raw[j])->data;
-            t_coords[j] = V2_int(t.x * texture.width, t.y * texture.height);
+            t_coords[j] = V2_float(t.x * texture.width, t.y * texture.height);
         }
         textureMap(&image, &texture, s_coords, t_coords, (float *)zbuffer);
 

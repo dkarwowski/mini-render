@@ -23,7 +23,7 @@
         if (idx < 0 || list_p->count <= idx) return NULL; \
         struct ll_node_##type *result = \
             ((list_p->count - idx) > list_p->count / 2) ? list_p->first : list_p->last; \
-        int i = ((list_p->count - idx) > list_p->count / 2) ? 0 : list_p->count; \
+        int i = ((list_p->count - idx) > list_p->count / 2) ? 0 : list_p->count - 1; \
         while (i != idx) { \
             result = ((list_p->count - idx) > list_p->count / 2) ? result->next : result->prev; \
             i += ((list_p->count - idx) > list_p->count / 2) ? 1 : -1; \
@@ -59,9 +59,11 @@ DEFINE_LIST(v3i);
 
 struct model {
     struct ll_v3f verts_;
-    struct ll_v3i faces_;
     struct ll_v3f textures_;
-    struct ll_v3i faces_textures_;
+    struct ll_v3f normals_;
+    struct ll_v3i faces_;
+    struct ll_v3i face_textures_;
+    struct ll_v3i face_normals_;
 };
 
 #define _MODEL_h_
