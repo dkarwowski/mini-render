@@ -15,6 +15,11 @@ ModelInit(const char *filename)
         return NULL;
     };
 
+    ll_v3f_init(&result->verts_);
+    ll_v3f_init(&result->textures_);
+    ll_v3f_init(&result->normals_);
+    ll_face_init(&result->faces_);
+
     while (!feof(file_p)) {
         char *tok = strtok(line, " ");
         if (strncmp(tok, "vt", 2) == 0) {
@@ -23,25 +28,23 @@ ModelInit(const char *filename)
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            AddLL_v3f(&result->textures_, data);
+            ll_v3f_add_entry(&result->textures_, data);
         } else if (strncmp(tok, "vn", 2) == 0) {
             v3f data = {0};
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            AddLL_v3f(&result->normals_, data);
+            ll_v3f_add_entry(&result->normals_, data);
         } else if (strncmp(tok, "v", 1) == 0) {
             v3f data = {0};
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            AddLL_v3f(&result->verts_, data);
+            ll_v3f_add_entry(&result->verts_, data);
         } else if (strncmp(tok, "f", 1) == 0) {
-            v3i data_model = {0};
-            v3i data_texture = {0};
-            v3i data_normal = {0};
+            v3i data[3];
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
 
@@ -51,21 +54,19 @@ ModelInit(const char *filename)
                     subtok[j] = tok[j];
                     subtok[j+1] = '\0';
                 }
-                data_model.raw[i] = atoll(subtok) - 1;
+                data[i].ivert = atoll(subtok);
                 for (k = 1; k < 15 && tok[j + k] != '/'; k++) {
                     subtok[k - 1] = tok[j + k];
                     subtok[k] = '\0';
                 }
-                data_texture.raw[i] = atoll(subtok) - 1;
+                data[i].iuv = atoll(subtok);
                 for (int l = 1; l < 15 && tok[j + k + l] != '\0'; l++) {
                     subtok[l - 1] = tok[j + k + l];
                     subtok[l] = '\0';
                 }
-                data_normal.raw[i] = atoll(subtok) - 1;
+                data[i].inorm = atoll(subtok);
             }
-            AddLL_v3i(&result->faces_, data_model);
-            AddLL_v3i(&result->face_textures_, data_texture);
-            AddLL_v3i(&result->face_normals_, data_normal);
+            ll_face_add_entry(&result->faces_, data);
         }
 
         if (fgets(line, 256, file_p) == NULL && !feof(file_p)) {
@@ -74,9 +75,6 @@ ModelInit(const char *filename)
         }
     }
     
-    if (result->faces_.count != result->face_textures_.count)
-        fprintf(stderr, "Invalid counts, %d != %d\n", result->faces_.count, result->face_textures_.count);
-
     char texture_filename[128];
     for (int i = 0; i < 127 && filename[i] != '.'; i++) {
         texture_filename[i] = filename[i];
@@ -90,7 +88,7 @@ ModelInit(const char *filename)
     TGA_ImageReadFile(&result->texture, texture_filename);
     TGA_ImageFlipVertically(&result->texture);
 
-    fprintf(stderr, "# v# %d vt# %d f# %d\n", result->verts_.count, result->textures_.count, result->faces_.count);
+    fprintf(stderr, "# v# %d vt# %d\n", ll_v3f_len(&result->verts_), ll_v3f_len(&result->textures_));
     return result;
 }
 
@@ -98,16 +96,12 @@ static
 void
 ModelDelete(struct model *model_p)
 {
-    while (model_p->verts_.count)
-        RemIdxLL_v3f(&model_p->verts_, 0);
-    while (model_p->textures_.count)
-        RemIdxLL_v3f(&model_p->textures_, 0);
-    while (model_p->normals_.count)
-        RemIdxLL_v3f(&model_p->normals_, 0);
-    while (model_p->faces_.count)
-        RemIdxLL_v3i(&model_p->faces_, 0);
-    while (model_p->face_textures_.count)
-        RemIdxLL_v3i(&model_p->face_textures_, 0);
-    while (model_p->face_normals_.count)
-        RemIdxLL_v3i(&model_p->face_normals_, 0);
+    while (!list_empty(&model_p->verts_.head))
+        list_del(model_p->verts_.head.next);
+    while (!list_empty(&model_p->textures_.head))
+        list_del(model_p->textures_.head.next);
+    while (!list_empty(&model_p->normals_.head))
+        list_del(model_p->normals_.head.next);
+    while (!list_empty(&model_p->faces_.list.head))
+        list_del(model_p->faces_.list.head.next);
 }

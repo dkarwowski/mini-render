@@ -184,23 +184,19 @@ render(struct model *model, TGA_Image *image)
     float zbuffer[width*height];
     for (int i = width * height; i--; zbuffer[i] = -FLT_MAX);
 
-    struct ll_node_v3i *face = model->faces_.first;
-    struct ll_node_v3i *face_texture = model->face_textures_.first;
-    for (int i = 0; i < model->faces_.count; i++) {
+    struct ll_face_node *face, *temp;
+    list_for_each_entry_safe(face, temp, &model->faces_.list.head, head) {
         v2f t_coords[3];
         v3f s_coords[3];
         for (int j = 0; j < 3; j++) {
-            v3f v = GetLL_v3f(&model->verts_, face->data.raw[j])->data;
-            int x = (v.x + 1.0f) * width / 2.0f;
-            int y = (v.y + 1.0f) * height / 2.0f;
-            s_coords[j] = V3_float(x, y, v.z);
-            v3f t = GetLL_v3f(&model->textures_, face_texture->data.raw[j])->data;
-            t_coords[j] = V2_float(t.x * model->texture.width, t.y * model->texture.height);
+            v3f *v = ll_v3f_get_index(&model->verts_, face->indexes[j].ivert);
+            int x = (v->x + 1.0f) * width / 2.0f;
+            int y = (v->y + 1.0f) * height / 2.0f;
+            s_coords[j] = V3_float(x, y, v->z);
+            v3f *t = ll_v3f_get_index(&model->textures_, face->indexes[j].iuv);
+            t_coords[j] = V2_float(t->x * model->texture.width, t->y * model->texture.height);
         }
         textureMap(model, image, s_coords, t_coords, (float *)zbuffer);
-
-        face = face->next;
-        face_texture = face_texture->next;
     }
     TGA_ImageFlipVertically(image);
 }
