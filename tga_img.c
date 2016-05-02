@@ -9,31 +9,40 @@ static
 TGA_Image
 TGA_ImageInit(int w, int h, int bpp)
 {
-    TGA_Image result = {
-        .data = NULL,
-        .width = w,
-        .height = h,
-        .bytespp = bpp
-    };
+    TGA_Image result = {    .data = NULL,
+                            .width = w,
+                            .height = h,
+                            .bytespp = bpp };
 
     unsigned long nbytes = w * h * bpp;
-    result.data = calloc(nbytes, sizeof(unsigned char));
+    result.data = (unsigned char *)calloc(nbytes, sizeof(unsigned char));
 
     return result;
 }
 
 static
-bool
-TGA_ImageLoadRLEData(TGA_Image *image_p, FILE *file_p)
+void
+TGA_ImageDelete(TGA_Image *image)
 {
-    unsigned long pixelCount = image_p->width * image_p->height;
+    free(image->data);
+    image->width = 0;
+    image->height = 0;
+    image->bytespp = 0;
+    image->data = NULL;
+}
+
+static
+bool
+TGA_ImageLoadRLEData(TGA_Image *image, FILE *file)
+{
+    unsigned long pixelCount   = image->width * image->height;
     unsigned long currentPixel = 0;
-    unsigned long currentByte = 0;
+    unsigned long currentByte  = 0;
     TGA_Color colorBuffer;
 
     do {
         unsigned char chunkHeader = 0;
-        if (!fscanf(file_p, "%c", &chunkHeader)) {
+        if (fscanf(file, "%c", &chunkHeader) == 0) {
             fprintf(stderr, "An error occured while reading data\n");
             return false;
         }
@@ -41,13 +50,13 @@ TGA_ImageLoadRLEData(TGA_Image *image_p, FILE *file_p)
         if (chunkHeader < 128) {
             chunkHeader++;
             for (int i = 0; i < chunkHeader; i++) {
-                if (!fread((void *)colorBuffer.raw, sizeof(char), image_p->bytespp, file_p)) {
+                if (fread((void *)colorBuffer.raw, sizeof(char), image->bytespp, file) == 0) {
                     fprintf(stderr, "An error occured while reading the header\n");
                     return false;
                 }
 
-                for (int t = 0; t < image_p->bytespp; t++)
-                    image_p->data[currentByte++] = colorBuffer.raw[t];
+                for (int t = 0; t < image->bytespp; t++)
+                    image->data[currentByte++] = colorBuffer.raw[t];
 
                 currentPixel++;
                 if (currentPixel > pixelCount) {
@@ -57,14 +66,14 @@ TGA_ImageLoadRLEData(TGA_Image *image_p, FILE *file_p)
             }
         } else {
             chunkHeader -= 127;
-            if (!fread((void *)colorBuffer.raw, sizeof(char), image_p->bytespp, file_p)) {
+            if (fread((void *)colorBuffer.raw, sizeof(char), image->bytespp, file) == 0) {
                 fprintf(stderr, "An error occured while reading the header\n");
                 return false;
             }
 
             for (int i = 0; i < chunkHeader; i++) {
-                for (int t = 0; t < image_p->bytespp; t++)
-                    image_p->data[currentByte++] = colorBuffer.raw[t];
+                for (int t = 0; t < image->bytespp; t++)
+                    image->data[currentByte++] = colorBuffer.raw[t];
 
                 currentPixel++;
                 if (currentPixel > pixelCount) {
@@ -80,24 +89,24 @@ TGA_ImageLoadRLEData(TGA_Image *image_p, FILE *file_p)
 
 static
 bool
-TGA_ImageUnloadRLEData(TGA_Image *image_p, FILE *file_p)
+TGA_ImageUnloadRLEData(TGA_Image *image, FILE *file)
 {
     const unsigned char maxChunkLength = 128;
-    unsigned long npixels = image_p->width * image_p->height;
-    unsigned long curpix = 0;
+    unsigned long       npixels        = image->width * image->height;
+    unsigned long       curpix         = 0;
 
     while (curpix < npixels) {
-        unsigned long chunkstart = curpix * image_p->bytespp;
-        unsigned long curbyte = curpix * image_p->bytespp;
-        unsigned char runLength = 1;
+        unsigned long chunkstart = curpix * image->bytespp;
+        unsigned long curbyte    = curpix * image->bytespp;
+        unsigned char runLength  = 1;
         bool raw = true;
-        
+
         while (curpix + runLength < npixels && runLength < maxChunkLength) {
             bool succEq = true;
-            for (int t = 0; succEq && t < image_p->bytespp; t++)
-                succEq = (image_p->data[curbyte + t] == image_p->data[curbyte + t + image_p->bytespp]);
+            for (int t = 0; succEq && t < image->bytespp; t++)
+                succEq = (image->data[curbyte + t] == image->data[curbyte + t + image->bytespp]);
 
-            curbyte += image_p->bytespp;
+            curbyte += image->bytespp;
             if (1 == runLength) {
                 raw = !succEq;
             }
@@ -112,13 +121,16 @@ TGA_ImageUnloadRLEData(TGA_Image *image_p, FILE *file_p)
         }
         curpix += runLength;
 
-        if (fputc(raw ? runLength - 1 : runLength + 127, file_p) == EOF) {
-            fprintf(stderr, "%d: Can't dump the runLength to file\n", ferror(file_p));
+        if (fputc(raw ? runLength - 1 : runLength + 127, file) == EOF) {
+            fprintf(stderr, "%d: Can't dump the runLength to file\n", ferror(file));
             return false;
         }
 
-        if (!fwrite(image_p->data + chunkstart, (raw ? runLength * image_p->bytespp : image_p->bytespp), 1, file_p)) {
-            fprintf(stderr, "%d: Can't dump the data to file\n", ferror(file_p));
+        if (fwrite( image->data + chunkstart,
+                    (raw ? runLength * image->bytespp : image->bytespp),
+                    1,
+                    file) == 0) {
+            fprintf(stderr, "%d: Can't dump the data to file\n", ferror(file));
             return false;
         }
     }
@@ -128,112 +140,114 @@ TGA_ImageUnloadRLEData(TGA_Image *image_p, FILE *file_p)
 
 static
 bool
-TGA_ImageWriteFile(TGA_Image *image_p, const char *filename, bool rle)
+TGA_ImageWriteFile(TGA_Image *image, const char *filename, bool rle)
 {
     unsigned char developer_area_ref[4] = {0};
     unsigned char extension_area_ref[4] = {0};
-    unsigned char footer[18] = {'T', 'R', 'U', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E', '.', '\0'};
+    unsigned char footer[18]            = { 'T', 'R', 'U', 'V', 'I', 'S',
+                                            'I', 'O', 'N', '-', 'X', 'F',
+                                            'I', 'L', 'E', '.', '\0'};
 
-    FILE *file_p = fopen(filename, "w");
-    if (file_p == NULL) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
         fprintf(stderr, "Can't open file %s\n", filename);
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
     TGA_Header header = {
-        .bitsperpixel = image_p->bytespp << 3,
-        .width = image_p->width,
-        .height = image_p->height,
-        .datatypecode = (image_p->bytespp == GRAYSCALE ? (rle ? 11 : 3) : (rle ? 10 : 2)),
+        .bitsperpixel = image->bytespp << 3,
+        .width = image->width,
+        .height = image->height,
+        .datatypecode = (image->bytespp == GRAYSCALE ? (rle ? 11 : 3) : (rle ? 10 : 2)),
         .imagedescriptor = 0x20 // top-left is the origin
     };
 
-    if (!fwrite(&header, sizeof(header), 1, file_p)) {
+    if (fwrite(&header, sizeof(header), 1, file) == 0) {
         fprintf(stderr, "Can't open Dump the TGA file\n");
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
     if (!rle) {
-        if (!fwrite(image_p->data, sizeof(char), image_p->width * image_p->height * image_p->bytespp, file_p)) {
+        if (fwrite(image->data, sizeof(char), image->width * image->height * image->bytespp, file) == 0) {
             fprintf(stderr, "Can't unload the raw data\n");
-            fclose(file_p);
+            fclose(file);
             return false;
         }
     } else {
-        if (!TGA_ImageUnloadRLEData(image_p, file_p)) {
+        if (!TGA_ImageUnloadRLEData(image, file)) {
             fprintf(stderr, "Can't unload RLE Data\n");
-            fclose(file_p);
+            fclose(file);
             return false;
         }
     }
 
-    if (!fwrite(developer_area_ref, sizeof(developer_area_ref), 1, file_p)) {
+    if (fwrite(developer_area_ref, sizeof(developer_area_ref), 1, file) == 0) {
         fprintf(stderr, "Can't dump the TGA file\n");
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
-    if (!fwrite(extension_area_ref, sizeof(extension_area_ref), 1, file_p)) {
+    if (fwrite(extension_area_ref, sizeof(extension_area_ref), 1, file) == 0) {
         fprintf(stderr, "Can't dump the TGA file\n");
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
-    if (!fwrite(footer, sizeof(footer), 1, file_p)) {
+    if (fwrite(footer, sizeof(footer), 1, file) == 0) {
         fprintf(stderr, "Can't dump the footer\n");
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
-    fclose(file_p);
+    fclose(file);
     return true;
 }
 
 static
 TGA_Color
-TGA_ImageGet(TGA_Image *image_p, int x, int y)
+TGA_ImageGet(TGA_Image *image, int x, int y)
 {
     TGA_Color result = {
         .val = 0,
         .bytespp = 1
     };
 
-    if (!image_p->data || x < 0 || y < 0 || x >= image_p->width || y >= image_p->height)
+    if (!image->data || x < 0 || y < 0 || x >= image->width || y >= image->height)
         return result;
 
-    for (int i = 0; i < image_p->bytespp; i++)
-        result.raw[i] = (image_p->data + (x + y * image_p->width) * image_p->bytespp)[i];
-    result.bytespp = image_p->bytespp;
+    for (int i = 0; i < image->bytespp; i++)
+        result.raw[i] = (image->data + (x + y * image->width) * image->bytespp)[i];
+    result.bytespp = image->bytespp;
     return result;
 }
 
 static
 bool
-TGA_ImageSet(TGA_Image *image_p, int x, int y, TGA_Color c)
+TGA_ImageSet(TGA_Image *image, int x, int y, TGA_Color c)
 {
-    if (!image_p->data || x < 0 || y < 0 || x >= image_p->width || y >= image_p->height)
+    if (!image->data || x < 0 || y < 0 || x >= image->width || y >= image->height)
         return false;
 
-    memcpy(image_p->data + (x + y * image_p->width) * image_p->bytespp, c.raw, image_p->bytespp);
+    memcpy(image->data + (x + y * image->width) * image->bytespp, c.raw, image->bytespp);
     return true;
 }
 
 static
 bool
-TGA_ImageFlipHorizontally(TGA_Image *image_p)
+TGA_ImageFlipHorizontally(TGA_Image *image)
 {
-    if (!image_p->data)
+    if (!image->data)
         return false;
 
-    int half = image_p->width >> 1;
+    int half = image->width >> 1;
     for (int i = 0; i < half; i++) {
-        for (int j = 0; j < image_p->height; j++) {
-            TGA_Color c1 = TGA_ImageGet(image_p, i, j);
-            TGA_Color c2 = TGA_ImageGet(image_p, image_p->width - 1 - i, j);
-            TGA_ImageSet(image_p, i, j, c2);
-            TGA_ImageSet(image_p, image_p->width - 1 - i, j, c1);
+        for (int j = 0; j < image->height; j++) {
+            TGA_Color c1 = TGA_ImageGet(image, i, j);
+            TGA_Color c2 = TGA_ImageGet(image, image->width - 1 - i, j);
+            TGA_ImageSet(image, i, j, c2);
+            TGA_ImageSet(image, image->width - 1 - i, j, c1);
         }
     }
 
@@ -242,21 +256,21 @@ TGA_ImageFlipHorizontally(TGA_Image *image_p)
 
 static
 bool
-TGA_ImageFlipVertically(TGA_Image *image_p)
+TGA_ImageFlipVertically(TGA_Image *image)
 {
-    if (!image_p->data)
+    if (!image->data)
         return false;
 
-    unsigned long bytesPerLine = image_p->width * image_p->bytespp;
+    unsigned long bytesPerLine = image->width * image->bytespp;
     unsigned char *line = calloc(sizeof(char), bytesPerLine);
-    int half = image_p->height >> 1;
+    int half = image->height >> 1;
     for (int j = 0; j < half; j++) {
         unsigned long l1 = j * bytesPerLine;
-        unsigned long l2 = (image_p->height - 1 - j) * bytesPerLine;
+        unsigned long l2 = (image->height - 1 - j) * bytesPerLine;
 
-        memmove((void *)line, (void *)(image_p->data + l1), bytesPerLine);
-        memmove((void *)(image_p->data + l1), (void *)(image_p->data + l2), bytesPerLine);
-        memmove((void *)(image_p->data + l2), (void *)line, bytesPerLine);
+        memmove((void *)line, (void *)(image->data + l1), bytesPerLine);
+        memmove((void *)(image->data + l1), (void *)(image->data + l2), bytesPerLine);
+        memmove((void *)(image->data + l2), (void *)line, bytesPerLine);
     }
 
     free(line);
@@ -265,116 +279,116 @@ TGA_ImageFlipVertically(TGA_Image *image_p)
 
 static
 bool
-TGA_ImageReadFile(TGA_Image *image_p, const char *filename)
+TGA_ImageReadFile(TGA_Image *image, const char *filename)
 {
-    if (image_p->data) free(image_p->data);
-    image_p->data = NULL;
+    if (image->data) free(image->data);
+    image->data = NULL;
 
-    FILE *file_p = fopen(filename, "r");
-    if (file_p == NULL) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
         fprintf(stderr, "Can't open file: %s\n", filename);
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
     TGA_Header header;
-    if (fread(&header, sizeof(header), 1, file_p) == 0) {
+    if (fread(&header, sizeof(header), 1, file) == 0) {
         fprintf(stderr, "Error trying to read the header\n");
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
-    image_p->width = header.width;
-    image_p->height = header.height;
-    image_p->bytespp = header.bitsperpixel >> 3;
-    if (image_p->width <= 0 || image_p->height <= 0 
-            || (image_p->bytespp != GRAYSCALE && image_p->bytespp != RGB && image_p->bytespp != RGBA)) {
+    image->width = header.width;
+    image->height = header.height;
+    image->bytespp = header.bitsperpixel >> 3;
+    if (image->width <= 0 || image->height <= 0
+            || (image->bytespp != GRAYSCALE && image->bytespp != RGB && image->bytespp != RGBA)) {
         fprintf(stderr, "Bad bpp/width/height value\n");
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
-    unsigned long nbytes = image_p->width * image_p->height * image_p->bytespp;
-    image_p->data = calloc(nbytes, sizeof(unsigned char));
+    unsigned long nbytes = image->width * image->height * image->bytespp;
+    image->data = (unsigned char *)calloc(nbytes, sizeof(unsigned char));
     if (3 == header.datatypecode || 2 == header.datatypecode) {
-        if (fread(image_p->data, sizeof(char), nbytes, file_p) != nbytes) {
+        if (fread(image->data, sizeof(char), nbytes, file) != nbytes) {
             fprintf(stderr, "And error occured while reading the data\n");
-            fclose(file_p);
+            fclose(file);
             return false;
         }
     } else if (10 == header.datatypecode || 11 == header.datatypecode) {
-        if (!TGA_ImageLoadRLEData(image_p, file_p)) {
+        if (!TGA_ImageLoadRLEData(image, file)) {
             fprintf(stderr, "An error occured while reading the data\n");
-            fclose(file_p);
+            fclose(file);
             return false;
         }
     } else {
         fprintf(stderr, "Unknown file format %d\n", (int)header.datatypecode);
-        fclose(file_p);
+        fclose(file);
         return false;
     }
 
     if (!(header.imagedescriptor & 0x20)) {
-        TGA_ImageFlipVertically(image_p);
+        TGA_ImageFlipVertically(image);
     }
     if (header.imagedescriptor & 0x10) {
-        TGA_ImageFlipHorizontally(image_p);
+        TGA_ImageFlipHorizontally(image);
     }
 
-    fprintf(stderr, "%dx%d/%d\n", image_p->width, image_p->height, image_p->bytespp*8);
-    fclose(file_p);
+    fprintf(stderr, "%dx%d/%d\n", image->width, image->height, image->bytespp*8);
+    fclose(file);
     return true;
 }
 
 static
 void
-TGA_ImageClear(TGA_Image *image_p)
+TGA_ImageClear(TGA_Image *image)
 {
-    memset((void *)image_p->data, 0, image_p->width * image_p->height * image_p->bytespp);
+    memset((void *)image->data, 0, image->width * image->height * image->bytespp);
 }
 
 static
 bool
-TGA_ImageScale(TGA_Image *image_p, int w, int h)
+TGA_ImageScale(TGA_Image *image, int w, int h)
 {
-    if (w <= 0 || h <= 0 || !image_p->data)
+    if (w <= 0 || h <= 0 || !image->data)
         return false;
-    unsigned char *tdata = calloc(sizeof(char), w * h * image_p->bytespp);
+    unsigned char *tdata = calloc(sizeof(char), w * h * image->bytespp);
     int nscanline = 0;
     int oscanline = 0;
     int erry = 0;
 
-    unsigned long nlinebytes = w * image_p->bytespp;
-    unsigned long olinebytes = image_p->width * image_p->bytespp;
+    unsigned long nlinebytes = w * image->bytespp;
+    unsigned long olinebytes = image->width * image->bytespp;
 
-    for (int j = 0; j < image_p->height; j++) {
-        int errx = image_p->width = 2;
-        int nx = -image_p->bytespp;
-        int ox = -image_p->bytespp;
+    for (int j = 0; j < image->height; j++) {
+        int errx = image->width = 2;
+        int nx = -image->bytespp;
+        int ox = -image->bytespp;
 
-        for (int i = 0; i < image_p->width; i++) {
-            ox += image_p->bytespp;
+        for (int i = 0; i < image->width; i++) {
+            ox += image->bytespp;
             errx += w;
-            while (errx >= (int)image_p->width) {
-                errx -= image_p->width;
-                nx += image_p->bytespp;
-                memcpy(tdata + nscanline + nx, image_p->data+oscanline+ox, image_p->bytespp);
+            while (errx >= (int)image->width) {
+                errx -= image->width;
+                nx += image->bytespp;
+                memcpy(tdata + nscanline + nx, image->data+oscanline+ox, image->bytespp);
             }
         }
         erry += h;
         oscanline += olinebytes;
-        while (erry >= (int)image_p->height) {
-            if (erry >= (int)image_p->height << 1)
+        while (erry >= (int)image->height) {
+            if (erry >= (int)image->height << 1)
                 memcpy(tdata + nscanline + nlinebytes, tdata + nscanline, nlinebytes);
-            erry -= image_p->height;
+            erry -= image->height;
             nscanline += nlinebytes;
         }
     }
 
-    free(image_p->data);
-    image_p->data = tdata;
-    image_p->width = w;
-    image_p->height = h;
+    free(image->data);
+    image->data = tdata;
+    image->width = w;
+    image->height = h;
 
     return true;
 }

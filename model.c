@@ -1,26 +1,26 @@
 #include "model.h"
 
 static
-struct model *
-ModelInit(const char *filename)
+int
+ModelInit(struct model *model, const char *filename)
 {
-    struct model *result = calloc(sizeof(struct model), 1);
-    FILE *file_p = fopen(filename, "r");
-    if (file_p == NULL)
-        return NULL;
+    memset(model, 0, sizeof(struct model));
+    FILE *file = fopen(filename, "r");
+    if (file == NULL)
+        return -1;
 
     char line[256];
-    if (fgets(line, 256, file_p) == NULL) {
+    if (fgets(line, 256, file) == NULL) {
         fprintf(stderr, "Can't read line from %s\n", filename);
-        return NULL;
+        return -1;
     };
 
-    ll_v3f_init(&result->verts_);
-    ll_v3f_init(&result->textures_);
-    ll_v3f_init(&result->normals_);
-    ll_face_init(&result->faces_);
+    ll_v3f_init(&model->verts_);
+    ll_v3f_init(&model->textures_);
+    ll_v3f_init(&model->normals_);
+    ll_face_init(&model->faces_);
 
-    while (!feof(file_p)) {
+    while (!feof(file)) {
         char *tok = strtok(line, " ");
         if (strncmp(tok, "vt", 2) == 0) {
             v3f data = {0};
@@ -28,21 +28,21 @@ ModelInit(const char *filename)
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            ll_v3f_add_entry(&result->textures_, data);
+            ll_v3f_add_entry(&model->textures_, data);
         } else if (strncmp(tok, "vn", 2) == 0) {
             v3f data = {0};
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            ll_v3f_add_entry(&result->normals_, data);
+            ll_v3f_add_entry(&model->normals_, data);
         } else if (strncmp(tok, "v", 1) == 0) {
             v3f data = {0};
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            ll_v3f_add_entry(&result->verts_, data);
+            ll_v3f_add_entry(&model->verts_, data);
         } else if (strncmp(tok, "f", 1) == 0) {
             v3i data[3];
             for (int i = 0; i < 3; i++) {
@@ -66,12 +66,13 @@ ModelInit(const char *filename)
                 }
                 data[i].inorm = atoll(subtok);
             }
-            ll_face_add_entry(&result->faces_, data);
+            ll_face_add_entry(&model->faces_, data);
         }
 
-        if (fgets(line, 256, file_p) == NULL && !feof(file_p)) {
+        if (fgets(line, 256, file) == NULL && !feof(file)) {
             fprintf(stderr, "Can't read line from %s\n", filename);
-            return NULL;
+            fclose(file);
+            return -1;
         }
     }
     
@@ -85,23 +86,38 @@ ModelInit(const char *filename)
     // quit out if the texture doesn't exist; we only do with textures
     if (access(texture_filename, F_OK) == -1)
         exit(-1);
-    TGA_ImageReadFile(&result->texture, texture_filename);
-    TGA_ImageFlipVertically(&result->texture);
+    TGA_ImageReadFile(&model->texture, texture_filename);
+    TGA_ImageFlipVertically(&model->texture);
 
-    fprintf(stderr, "# v# %d vt# %d\n", ll_v3f_len(&result->verts_), ll_v3f_len(&result->textures_));
-    return result;
+    fclose(file);
+    fprintf(stderr, "# v# %d vt# %d\n", ll_v3f_len(&model->verts_), ll_v3f_len(&model->textures_));
+    return 0;
 }
 
 static
 void
-ModelDelete(struct model *model_p)
+ModelDelete(struct model *model)
 {
-    while (!list_empty(&model_p->verts_.head))
-        list_del(model_p->verts_.head.next);
-    while (!list_empty(&model_p->textures_.head))
-        list_del(model_p->textures_.head.next);
-    while (!list_empty(&model_p->normals_.head))
-        list_del(model_p->normals_.head.next);
-    while (!list_empty(&model_p->faces_.list.head))
-        list_del(model_p->faces_.list.head.next);
+    while (!list_empty(&model->verts_.head)) {
+        struct ll_v3f *del = list_entry(model->verts_.head.next, struct ll_v3f, head);
+        list_del(&del->head);
+        free(del);
+    }
+    while (!list_empty(&model->textures_.head)) {
+        struct ll_v3f *del = list_entry(model->textures_.head.next, struct ll_v3f, head);
+        list_del(&del->head);
+        free(del);
+    }
+    while (!list_empty(&model->normals_.head)) {
+        struct ll_v3f *del = list_entry(model->normals_.head.next, struct ll_v3f, head);
+        list_del(&del->head);
+        free(del);
+    }
+    while (!list_empty(&model->faces_.list.head)) {
+        struct ll_face_node *del = list_entry(model->faces_.list.head.next, struct ll_face_node, head);
+        list_del(&del->head);
+        free(del);
+    }
+
+    TGA_ImageDelete(&model->texture);
 }

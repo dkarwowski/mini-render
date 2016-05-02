@@ -166,6 +166,8 @@ textureMap(struct model *model, TGA_Image *image, v3f s_pts[3], v2f t_pts[3], fl
                         color.a);
             }
 
+            if ((int)(P.x + P.y * image->width) < 0 || (int)(P.x + P.y * image->width) >= image->width * image->height)
+                fprintf(stdout, "out of bounds\n");
             if (zbuffer[(int)(P.x + P.y * image->width)] < P.z) {
                 zbuffer[(int)(P.x + P.y * image->width)] = P.z;
                 TGA_ImageSet(image, P.x, P.y, color);
@@ -181,8 +183,8 @@ render(struct model *model, TGA_Image *image)
     int width = image->width;
     int height = image->height;
 
-    float zbuffer[width*height];
-    for (int i = width * height; i--; zbuffer[i] = -FLT_MAX);
+    float *zbuffer = (float *)malloc(sizeof(float)*width*height);
+    for (int i = width * height; i-- ; zbuffer[i] = -FLT_MAX);
 
     struct ll_face_node *face, *temp;
     list_for_each_entry_safe(face, temp, &model->faces_.list.head, head) {
@@ -199,24 +201,27 @@ render(struct model *model, TGA_Image *image)
         textureMap(model, image, s_coords, t_coords, (float *)zbuffer);
     }
     TGA_ImageFlipVertically(image);
+
+    free(zbuffer);
 }
 
 int
 main(int argc, char **argv)
 {
-    struct model *model = NULL;
+    struct model model = {0};
     const int width = 800;
     const int height = 800;
 
     if (2 == argc)
-        model = ModelInit(argv[1]);
+        ModelInit(&model, argv[1]);
     else
-        model = ModelInit("obj/african_head.obj");
+        ModelInit(&model, "obj/african_head.obj");
 
     TGA_Image image = TGA_ImageInit(width, height, RGB);
-    render(model, &image);
+    render(&model, &image);
     TGA_ImageWriteFile(&image, "output.tga", true);
 
-    ModelDelete(model);
+    TGA_ImageDelete(&image);
+    ModelDelete(&model);
     return 0;
 }
