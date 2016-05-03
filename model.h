@@ -27,9 +27,9 @@ ll_v3f_add_entry(struct ll_v3f *list, v3f vec)
     if ((temp = (struct ll_v3f *)malloc(sizeof(struct ll_v3f))) == 0)
         return -1;
     memcpy(&temp->vec, &vec, sizeof(v3f));
-    last = list_entry(list->head.prev, struct ll_v3f, head);
+    last = LIST_ENTRY(list->head.prev, struct ll_v3f, head);
     temp->n = last->n + 1;
-    list_add_tail(&temp->head, &list->head);
+    L_ListAddTail(&temp->head, &list->head);
     return 0;
 }
 
@@ -37,7 +37,7 @@ static inline
 int
 ll_v3f_len(struct ll_v3f *list)
 {
-    struct ll_v3f *last = list_entry(list->head.prev, struct ll_v3f, head);
+    struct ll_v3f *last = LIST_ENTRY(list->head.prev, struct ll_v3f, head);
     int result = last->n;
     return result;
 }
@@ -47,7 +47,7 @@ v3f *
 ll_v3f_get_index(struct ll_v3f *list, int index)
 {
     struct ll_v3f *result, *temp;
-    list_for_each_entry_safe(result, temp, &list->head, head) {
+    LIST_FOR_EACH_ENTRY_SAFE(result, temp, &list->head, head) {
         if (result->n == index)
             return &result->vec;
     }
@@ -84,7 +84,7 @@ ll_face_add_entry(struct ll_face *list, v3i data[3])
         temp->indexes[i].iuv = data[i].iuv;
         temp->indexes[i].inorm = data[i].inorm;
     }
-    list_add_tail(&temp->head, &list->list.head);
+    L_ListAddTail(&temp->head, &list->list.head);
     return 0;
 }
 

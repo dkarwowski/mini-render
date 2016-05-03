@@ -98,24 +98,24 @@ static
 void
 ModelDelete(struct model *model)
 {
-    while (!list_empty(&model->verts_.head)) {
-        struct ll_v3f *del = list_entry(model->verts_.head.next, struct ll_v3f, head);
-        list_del(&del->head);
+    while (!L_ListEmpty(&model->verts_.head)) {
+        struct ll_v3f *del = LIST_ENTRY(model->verts_.head.next, struct ll_v3f, head);
+        L_ListDel(&del->head);
         free(del);
     }
-    while (!list_empty(&model->textures_.head)) {
-        struct ll_v3f *del = list_entry(model->textures_.head.next, struct ll_v3f, head);
-        list_del(&del->head);
+    while (!L_ListEmpty(&model->textures_.head)) {
+        struct ll_v3f *del = LIST_ENTRY(model->textures_.head.next, struct ll_v3f, head);
+        L_ListDel(&del->head);
         free(del);
     }
-    while (!list_empty(&model->normals_.head)) {
-        struct ll_v3f *del = list_entry(model->normals_.head.next, struct ll_v3f, head);
-        list_del(&del->head);
+    while (!L_ListEmpty(&model->normals_.head)) {
+        struct ll_v3f *del = LIST_ENTRY(model->normals_.head.next, struct ll_v3f, head);
+        L_ListDel(&del->head);
         free(del);
     }
-    while (!list_empty(&model->faces_.list.head)) {
-        struct ll_face_node *del = list_entry(model->faces_.list.head.next, struct ll_face_node, head);
-        list_del(&del->head);
+    while (!L_ListEmpty(&model->faces_.list.head)) {
+        struct ll_face_node *del = LIST_ENTRY(model->faces_.list.head.next, struct ll_face_node, head);
+        L_ListDel(&del->head);
         free(del);
     }
 

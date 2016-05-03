@@ -31,7 +31,7 @@ struct list_head {
  */
 static inline
 void
-__list_add(struct list_head *new, struct list_head *prev, struct list_head *next)
+__ListAdd(struct list_head *new, struct list_head *prev, struct list_head *next)
 {
     next->prev = new;
     new->next = next;
@@ -40,7 +40,7 @@ __list_add(struct list_head *new, struct list_head *prev, struct list_head *next
 }
 
 /**
- * list_add - add a new entry
+ * L_ListAdd - add a new entry
  * @new: new entry to be added
  * @head: list head to add after
  *
@@ -48,13 +48,13 @@ __list_add(struct list_head *new, struct list_head *prev, struct list_head *next
  */
 static inline
 void
-list_add(struct list_head *new, struct list_head *head)
+L_ListAdd(struct list_head *new, struct list_head *head)
 {
-    __list_add(new, head, head->next);
+    __ListAdd(new, head, head->next);
 }
 
 /**
- * list_add_tail - add a new entry
+ * L_ListAddTail - add a new entry
  * @new: entry to be added
  * @head: list head to add before
  *
@@ -62,9 +62,9 @@ list_add(struct list_head *new, struct list_head *head)
  */
 static inline
 void
-list_add_tail(struct list_head *new, struct list_head *head)
+L_ListAddTail(struct list_head *new, struct list_head *head)
 {
-    __list_add(new, head->prev, head);
+    __ListAdd(new, head->prev, head);
 }
 
 /**
@@ -73,71 +73,71 @@ list_add_tail(struct list_head *new, struct list_head *head)
  */
 static inline
 void
-__list_del(struct list_head *prev, struct list_head *next)
+__ListDel(struct list_head *prev, struct list_head *next)
 {
     next->prev = prev;
     prev->next = next;
 }
 
 /**
- * list_del - delete entry from the list
+ * L_ListDel - delete entry from the list
  * @entry: element to delete from the list
  * Note: turns the node into an undefined state
  */
 static inline
 void
-list_del(struct list_head *entry)
+L_ListDel(struct list_head *entry)
 {
-    __list_del(entry->prev, entry->next);
+    __ListDel(entry->prev, entry->next);
     entry->next = (void *)0;
     entry->prev = (void *)0;
 }
 
 /**
- * list_del_init - delete an entry and reinitialize it
+ * L_ListDelInit - delete an entry and reinitialize it
  * @entry: element to delete from the list
  */
 static inline
 void
-list_del_init(struct list_head *entry)
+L_ListDelInit(struct list_head *entry)
 {
-    __list_del(entry->prev, entry->next);
+    __ListDel(entry->prev, entry->next);
     INIT_LIST_HEAD(entry);
 }
 
 /**
- * list_move - delete from one list and add to head of another
+ * L_ListMove - delete from one list and add to head of another
  * @list: the entry to move
  * @head: list head to add after
  */
 static inline
 void
-list_move(struct list_head *list, struct list_head *head)
+L_ListMove(struct list_head *list, struct list_head *head)
 {
-    __list_del(list->prev, list->next);
-    list_add(list, head);
+    __ListDel(list->prev, list->next);
+    L_ListAdd(list, head);
 }
 
 /**
- * list_move_tail - delete from one list and add as another's tail
+ * L_ListMoveTail - delete from one list and add as another's tail
  * @list: entry to move
  * @head: list head that will follow our entry
  */
 static inline
 void
-list_move_tail(struct list_head *list, struct list_head *head)
+L_ListMoveTail(struct list_head *list, struct list_head *head)
 {
-    __list_del(list->prev, list->next);
-    list_add_tail(list, head);
+    __ListDel(list->prev, list->next);
+    L_ListAddTail(list, head);
 }
 
 /**
- * list_empty - tests whether a list is empty
+ * L_ListEmpty - tests whether a list is empty
  * @head: list to test
  */
 static inline
 int
-list_empty(struct list_head *head)
+L_ListEmpty(struct list_head *head)
 {
     return head->next == head;
 }
@@ -147,7 +147,7 @@ list_empty(struct list_head *head)
  */
 static inline
 void
-__list_splice(struct list_head *list, struct list_head *head)
+__ListSplice(struct list_head *list, struct list_head *head)
 {
     struct list_head *first = list->next;
     struct list_head *last = list->prev;
@@ -161,20 +161,20 @@ __list_splice(struct list_head *list, struct list_head *head)
 }
 
 /**
- * list_splice - join two lists together
+ * L_ListSplice - join two lists together
  * @list: the new list to add.
  * @head: the place to add it in the first list
  */
 static inline
 void
-list_splice(struct list_head *list, struct list_head *head)
+L_ListSplice(struct list_head *list, struct list_head *head)
 {
-    if (!list_empty(list))
-        __list_splice(list, head);
+    if (!L_ListEmpty(list))
+        __ListSplice(list, head);
 }
 
 /**
- * list_splice_init - join two lists and reinitialize the emptied list
+ * L_ListSpliceInit - join two lists and reinitialize the emptied list
  * @list: new list to add
  * @head: the place to add it in the first list
  *
@@ -182,71 +182,71 @@ list_splice(struct list_head *list, struct list_head *head)
  */
 static inline
 void
-list_splice_init(struct list_head *list, struct list_head *head)
+L_ListSpliceInit(struct list_head *list, struct list_head *head)
 {
-    if (!list_empty(list)) {
-        __list_splice(list, head);
+    if (!L_ListEmpty(list)) {
+        __ListSplice(list, head);
         INIT_LIST_HEAD(list);
     }
 }
 
 /**
- * list_entry - get the struct for this entry
+ * LIST_ENTRY - get the struct for this entry
  * @ptr: the (struct list_head *) we're at
  * @type: the type of the struct
  * @member: the name of the list_head in the struct
  */
-#define list_entry(ptr, type, member) \
+#define LIST_ENTRY(ptr, type, member) \
     ((type *)((char *)(ptr) - (unsigned long)(&((type *)0)->member)))
 
 /**
- * list_for_each - iterate over a list
+ * LIST_FOR_EACH - iterate over a list
  * @pos: the (struct list_head *) to use as counter
  * @head: head of your list
  */
-#define list_for_each(pos, head) \
+#define LIST_FOR_EACH(pos, head) \
     for (pos = (head)->next; pos != (head); pos = pos->next)
 
 /**
- * list_for_each_prev - iterate over a list backwards
+ * LIST_FOR_EACH_PREV - iterate over a list backwards
  * @pos: the (struct list_head *) to use as a counter
  * @head: head of your list
  */
-#define list_for_each_prev(pos, head) \
+#define LIST_FOR_EACH_PREV(pos, head) \
     for (pos = (head)->prev; pos != (head); pos = pos->prev)
 
 /**
- * list_for_each_safe - iterate over a list safe against removal
+ * LIST_FOR_EACH_SAFE - iterate over a list safe against removal
  * @pos: the (struct list_head *) to use as a counter
  * @n: a (struct list_head *) to use as temporary storage
  * @head: head of your list
  */
-#define list_for_each_safe(pos, n, head) \
+#define LIST_FOR_EACH_SAFE(pos, n, head) \
     for (pos = (head)->next, n = pos->next; pos != (head); pos = n, n = pos->next)
 
 /**
- * list_for_each_entry - iterate over entries in the list
+ * LIST_FOR_EACH_ENTRY - iterate over entries in the list
  * @pos: (type *) to use as a counter
  * @head: head of your list
  * @member: name of the list_head within the struct
  */
-#define list_for_each_entry(pos, head, member) \
-    for (pos = list_entry((head)->next, typeof(*pos), member); \
+#define LIST_FOR_EACH_ENTRY(pos, head, member) \
+    for (pos = LIST_ENTRY((head)->next, typeof(*pos), member); \
          &pos->member != (head); \
-         pos = list_entry(pos->member.next, typeof(*pos), member))
+         pos = LIST_ENTRY(pos->member.next, typeof(*pos), member))
 
 /**
- * list_for_each_entry_safe - iterate over entries safe against removal
+ * LIST_FOR_EACH_ENTRY_SAFE - iterate over entries safe against removal
  * @pos: (type *) to use as a counter
  * @n: (type *) for temporary storage
  * @head: head of your list
  * @member: the name of the list_head within the struct
  */
-#define list_for_each_entry_safe(pos, n, head, member) \
-    for (pos = list_entry((head)->next, typeof(*pos), member), \
-         n = list_entry(pos->member.next, typeof(*pos), member); \
+#define LIST_FOR_EACH_ENTRY_SAFE(pos, n, head, member) \
+    for (pos = LIST_ENTRY((head)->next, typeof(*pos), member), \
+         n = LIST_ENTRY(pos->member.next, typeof(*pos), member); \
          &pos->member != (head); \
-         pos = n, n = list_entry(n->member.next, typeof(*n), member))
+         pos = n, n = LIST_ENTRY(n->member.next, typeof(*n), member))
 
 #define _LIST_h_
 #endif

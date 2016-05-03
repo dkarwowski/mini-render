@@ -187,7 +187,7 @@ render(struct model *model, TGA_Image *image)
     for (int i = width * height; i-- ; zbuffer[i] = -FLT_MAX);
 
     struct ll_face_node *face, *temp;
-    list_for_each_entry_safe(face, temp, &model->faces_.list.head, head) {
+    LIST_FOR_EACH_ENTRY_SAFE(face, temp, &model->faces_.list.head, head) {
         v2f t_coords[3];
         v3f s_coords[3];
         for (int j = 0; j < 3; j++) {
