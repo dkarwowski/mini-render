@@ -191,11 +191,11 @@ render(struct model *model, TGA_Image *image)
         v2f t_coords[3];
         v3f s_coords[3];
         for (int j = 0; j < 3; j++) {
-            v3f *v = ll_v3f_get_index(&model->verts_, face->indexes[j].ivert);
+            v3f *v = LL_V3F_GetIndex(&model->verts_, face->indexes[j].ivert);
             int x = (v->x + 1.0f) * width / 2.0f;
             int y = (v->y + 1.0f) * height / 2.0f;
             s_coords[j] = V3_float(x, y, v->z);
-            v3f *t = ll_v3f_get_index(&model->textures_, face->indexes[j].iuv);
+            v3f *t = LL_V3F_GetIndex(&model->textures_, face->indexes[j].iuv);
             t_coords[j] = V2_float(t->x * model->texture.width, t->y * model->texture.height);
         }
         textureMap(model, image, s_coords, t_coords, (float *)zbuffer);

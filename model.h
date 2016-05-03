@@ -13,7 +13,7 @@ struct ll_v3f {
 
 static inline
 void
-ll_v3f_init(struct ll_v3f *list)
+LL_V3F_Init(struct ll_v3f *list)
 {
     INIT_LIST_HEAD(&list->head);
     list->n = 0;
@@ -21,7 +21,7 @@ ll_v3f_init(struct ll_v3f *list)
 
 static inline
 int
-ll_v3f_add_entry(struct ll_v3f *list, v3f vec)
+LL_V3F_AddEntry(struct ll_v3f *list, v3f vec)
 {
     struct ll_v3f *temp, *last;
     if ((temp = (struct ll_v3f *)malloc(sizeof(struct ll_v3f))) == 0)
@@ -35,7 +35,7 @@ ll_v3f_add_entry(struct ll_v3f *list, v3f vec)
 
 static inline
 int
-ll_v3f_len(struct ll_v3f *list)
+LL_V3F_Len(struct ll_v3f *list)
 {
     struct ll_v3f *last = LIST_ENTRY(list->head.prev, struct ll_v3f, head);
     int result = last->n;
@@ -44,7 +44,7 @@ ll_v3f_len(struct ll_v3f *list)
 
 static inline
 v3f *
-ll_v3f_get_index(struct ll_v3f *list, int index)
+LL_V3F_GetIndex(struct ll_v3f *list, int index)
 {
     struct ll_v3f *result, *temp;
     LIST_FOR_EACH_ENTRY_SAFE(result, temp, &list->head, head) {
@@ -67,14 +67,14 @@ struct ll_face {
 
 static inline
 void
-ll_face_init(struct ll_face *list)
+LL_Face_Init(struct ll_face *list)
 {
     INIT_LIST_HEAD(&list->list.head);
 }
 
 static inline
 int
-ll_face_add_entry(struct ll_face *list, v3i data[3])
+LL_Face_AddEntry(struct ll_face *list, v3i data[3])
 {
     struct ll_face_node *temp;
     if ((temp = (struct ll_face_node *)malloc(sizeof(struct ll_face_node))) == 0)

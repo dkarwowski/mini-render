@@ -10,17 +10,13 @@ ModelInit(struct model *model, const char *filename)
         return -1;
 
     char line[256];
-    if (fgets(line, 256, file) == NULL) {
-        fprintf(stderr, "Can't read line from %s\n", filename);
-        return -1;
-    };
 
-    ll_v3f_init(&model->verts_);
-    ll_v3f_init(&model->textures_);
-    ll_v3f_init(&model->normals_);
-    ll_face_init(&model->faces_);
+    LL_V3F_Init(&model->verts_);
+    LL_V3F_Init(&model->textures_);
+    LL_V3F_Init(&model->normals_);
+    LL_Face_Init(&model->faces_);
 
-    while (!feof(file)) {
+    while (fgets(line, 256, file)) {
         char *tok = strtok(line, " ");
         if (strncmp(tok, "vt", 2) == 0) {
             v3f data = {0};
@@ -28,21 +24,21 @@ ModelInit(struct model *model, const char *filename)
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            ll_v3f_add_entry(&model->textures_, data);
+            LL_V3F_AddEntry(&model->textures_, data);
         } else if (strncmp(tok, "vn", 2) == 0) {
             v3f data = {0};
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            ll_v3f_add_entry(&model->normals_, data);
+            LL_V3F_AddEntry(&model->normals_, data);
         } else if (strncmp(tok, "v", 1) == 0) {
             v3f data = {0};
             for (int i = 0; i < 3; i++) {
                 tok = strtok(NULL, " ");
                 data.raw[i] = atof(tok);
             }
-            ll_v3f_add_entry(&model->verts_, data);
+            LL_V3F_AddEntry(&model->verts_, data);
         } else if (strncmp(tok, "f", 1) == 0) {
             v3i data[3];
             for (int i = 0; i < 3; i++) {
@@ -66,13 +62,7 @@ ModelInit(struct model *model, const char *filename)
                 }
                 data[i].inorm = atoll(subtok);
             }
-            ll_face_add_entry(&model->faces_, data);
-        }
-
-        if (fgets(line, 256, file) == NULL && !feof(file)) {
-            fprintf(stderr, "Can't read line from %s\n", filename);
-            fclose(file);
-            return -1;
+            LL_Face_AddEntry(&model->faces_, data);
         }
     }
     
@@ -90,7 +80,7 @@ ModelInit(struct model *model, const char *filename)
     TGA_ImageFlipVertically(&model->texture);
 
     fclose(file);
-    fprintf(stderr, "# v# %d vt# %d\n", ll_v3f_len(&model->verts_), ll_v3f_len(&model->textures_));
+    fprintf(stderr, "# v# %d vt# %d\n", LL_V3F_Len(&model->verts_), LL_V3F_Len(&model->textures_));
     return 0;
 }
 
